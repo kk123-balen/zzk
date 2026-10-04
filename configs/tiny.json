@@ -1,0 +1,12 @@
+{
+  "seed": 42,
+  "device": "cpu",
+  "batch_size": 4,
+  "block_size": 32,
+  "n_embd": 64,
+  "n_head": 4,
+  "n_layer": 2,
+  "learning_rate": 0.001,
+  "max_steps": 200,
+  "eval_interval": 50
+}

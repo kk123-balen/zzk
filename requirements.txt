@@ -1,0 +1,2 @@
+# 当前演示仅使用 Python 标准库，无需安装第三方包。
+# 开始 attention 阶段时，根据 docs/tasks.md 安装 PyTorch。
