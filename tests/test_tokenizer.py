@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -32,8 +34,26 @@ class TokenizerTests(unittest.TestCase):
             self.assertEqual(loaded.itos, tokenizer.itos)
             self.assertEqual(loaded.encode("你? ab\n"), tokenizer.encode("你? ab\n"))
             self.assertEqual(loaded.decode(range(loaded.vocab_size)), tokenizer.decode(range(tokenizer.vocab_size)))
+            original_bytes = path.read_bytes()
             loaded.save(path)
+            self.assertEqual(path.read_bytes(), original_bytes)
             self.assertEqual(CharTokenizer.load(path).stoi, tokenizer.stoi)
+
+    def test_saved_vocabulary_loads_with_identical_ids_in_new_process(self):
+        tokenizer = CharTokenizer("你\n ab🙂")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "vocab.json"
+            tokenizer.save(path)
+            result = subprocess.run(
+                [sys.executable, "-c",
+                 "import json, sys; from minigpt.tokenizer import CharTokenizer; "
+                 "t = CharTokenizer.load(sys.argv[1]); "
+                 "print(json.dumps([t.encode('a?你🙂'), t.decode([1, 2, 3, 4, 5, 6, 0])]))",
+                 str(path)],
+                cwd=Path(__file__).resolve().parents[1],
+                capture_output=True, text=True, check=True, timeout=10,
+            )
+            self.assertEqual(json.loads(result.stdout), [[3, 0, 5, 6], "\n ab你🙂<UNK>"])
 
     def test_invalid_vocabulary_files(self):
         with tempfile.TemporaryDirectory() as directory:

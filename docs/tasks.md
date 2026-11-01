@@ -6,7 +6,7 @@
 
 前置：理解列表、字典、类和文件读取。
 
-状态：代码与验收测试已完成。接口、未知字符策略及示例见 README 的“任务 1”章节；运行 `python -m unittest discover -s tests -v`。后续从任务 2 开始。
+状态：代码与验收测试已完成。接口、未知字符策略及 `abcd` 手工验收见 README 的“任务 1”章节；运行 `python -m minigpt.data` 查看窗口，运行 `python -m unittest discover -s tests -v` 执行全部验收。后续从任务 2 开始。
 
 - 实现 CharTokenizer 的确定性词表、encode(text)、decode(ids)。预留未知字符编号并写明策略，不静默丢字符。
 - 支持词表保存与加载，加载后编号必须保持一致。

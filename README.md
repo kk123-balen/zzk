@@ -22,6 +22,7 @@ python3 --version
 python3 -m venv .venv
 source .venv/bin/activate
 python -m minigpt.demo
+python -m minigpt.data
 python -m unittest discover -s tests -v
 ```
 
@@ -71,9 +72,18 @@ python -m minigpt.demo --data data/tiny.txt --prompt "Python"
 
 运行 demo，打开 baseline.py，找出计数的循环。将 data/tiny.txt 改成多次重复的 `ababab`，把 prompt 改成 `a`，观察生成结果，解释为什么下一个字符可以被预测。
 
-后续任务见仓库 Issues。尚未完成的配置与脚本不能用于 GPT 训练；当前可运行入口始终是 `python -m minigpt.demo`。
+后续任务见仓库 Issues。尚未完成的配置与脚本不能用于 GPT 训练；当前可运行入口为 `python -m minigpt.demo`（统计基线）和 `python -m minigpt.data`（任务 1 验收）。
 
 ## 任务 1：字符 tokenizer 与数据窗口
+
+从仓库根目录以模块方式运行，查看训练/验证窗口的编号与解码结果：
+
+```bash
+python -m minigpt.data
+python -m minigpt.data --data data/tiny.txt --block-size 8 --train-fraction 0.9 --vocab-out checkpoints/vocab.json
+```
+
+默认使用自带 UTF-8 文本，先按字符位置分割为训练集 141 字符、验证集 16 字符，再生成训练窗口 133 个、验证窗口 8 个。`--vocab-out` 可选，其父目录须已存在。文本过短、参数非法或文件无法读取时，命令会明确报错并以非零状态退出。
 
 从仓库根目录运行全部测试（标准库，无需安装依赖）：
 
@@ -101,6 +111,13 @@ text = Path("data/tiny.txt").read_text(encoding="utf-8")
 tokenizer, train_windows, val_windows = prepare_data(text, block_size=8)
 ```
 
+`abcd` 的手工验收（`block_size=2`，`a/b/c/d` 编号为 `1/2/3/4`）：
+
+| 窗口 | x | y | 解码 x → y |
+|---|---|---|---|
+| 1 | `[1, 2]` | `[2, 3]` | `ab` → `bc` |
+| 2 | `[2, 3]` | `[3, 4]` | `bc` → `cd` |
+
 - `CharTokenizer(vocabulary)` 接受字符序列；去重后按 Unicode 顺序编号，已知字符从 1 开始，`vocab_size` 包括未知编号 0。
 - 未知字符逐个编码为 0，解码显示 `<UNK>`，不删除字符、不自动扩展词表。未知字符的原文无法还原；已知字符可完整往返，包括空格和换行。
 - JSON 保存版本、未知编号和有序字符列表；加载会拒绝重复、乱序或不支持的格式，避免编号静默改变。
@@ -108,4 +125,4 @@ tokenizer, train_windows, val_windows = prepare_data(text, block_size=8)
 - `prepare_data(text, block_size, train_fraction=0.9)` 在 `int(len(text) * train_fraction)` 处先分割原始文本，只用训练文本建词表，再分别编码并构造窗口。验证集的新字符映射为 0；窗口不会跨边界。
 - 每一部分至少需要 `block_size + 1` 个字符，否则明确报错。示例语料只有 157 字符，默认 90% 分割后的验证集只有 16 字符，因此这里用 8；配置草案的 `block_size=32` 需要更长语料或调整分割比例。
 
-任务 1 的验收测试见 `tests/test_tokenizer.py` 与 `tests/test_data.py`。接下来按顺序推进任务 2：因果 attention。
+任务 1 的验收测试见 `tests/test_tokenizer.py`、`tests/test_data.py` 和 `tests/test_data_cli.py`，涵盖新进程加载词表、训练/验证字符相同时的边界隔离，以及模块入口。接下来按顺序推进任务 2：因果 attention。

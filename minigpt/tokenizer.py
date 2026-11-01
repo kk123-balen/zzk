@@ -5,6 +5,8 @@ from pathlib import Path
 
 
 class CharTokenizer:
+    """已知字符编号从 1 开始；未知字符使用 0，解码为 <UNK>，无法恢复原文。"""
+
     unk_id = 0
     unk_token = "<UNK>"
 
@@ -29,6 +31,7 @@ class CharTokenizer:
         return [self.stoi.get(char, self.unk_id) for char in text]
 
     def decode(self, ids):
+        """还原已知字符；非法编号报错，未知编号输出显式标记。"""
         characters = []
         for token_id in ids:
             if type(token_id) is not int or not 0 <= token_id < self.vocab_size:
@@ -37,11 +40,13 @@ class CharTokenizer:
         return "".join(characters)
 
     def save(self, path):
+        """保存版本与有序字符列表；编号由列表位置确定，0 始终保留。"""
         payload = {"version": 1, "unk_id": self.unk_id, "characters": list(self.vocabulary)}
         Path(path).write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     @classmethod
     def load(cls, path):
+        """加载相同编号；拒绝会导致重新排序或去重的损坏词表。"""
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
         if (not isinstance(payload, dict) or type(payload.get("version")) is not int
                 or payload["version"] != 1 or type(payload.get("unk_id")) is not int

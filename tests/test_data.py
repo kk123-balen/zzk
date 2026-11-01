@@ -35,6 +35,41 @@ class DataTests(unittest.TestCase):
     def test_preserves_whitespace(self):
         self.assertEqual(split_text(" a\n b\n", 0.5), (" a\n", " b\n"))
 
+    def test_known_validation_characters_do_not_hide_boundary_leaks(self):
+        # 两侧都没有未知字符，跨界的 d -> d 目标也必须被排除。
+        examples = (
+            (1, [("a", "b"), ("b", "c"), ("c", "d")],
+             [("d", "c"), ("c", "b"), ("b", "a")]),
+            (2, [("ab", "bc"), ("bc", "cd")], [("dc", "cb"), ("cb", "ba")]),
+            (3, [("abc", "bcd")], [("dcb", "cba")]),
+        )
+        for size, expected_train, expected_val in examples:
+            with self.subTest(block_size=size):
+                tokenizer, train, val = prepare_data("abcddcba", size, 0.5)
+                self.assertEqual(
+                    [(tokenizer.decode(x), tokenizer.decode(y)) for x, y in train],
+                    expected_train,
+                )
+                self.assertEqual(
+                    [(tokenizer.decode(x), tokenizer.decode(y)) for x, y in val],
+                    expected_val,
+                )
+
+    def test_fraction_rounds_down_and_minimum_split_keeps_last_target(self):
+        # 9 * 0.5 向下取整为 4；训练集恰好够一个窗口，验证集有两个。
+        tokenizer, train, val = prepare_data("abcdabcda", 3, 0.5)
+        self.assertEqual(split_text("abcdabcda", 0.5), ("abcd", "abcda"))
+        self.assertEqual(train, [([1, 2, 3], [2, 3, 4])])
+        self.assertEqual(val, [([1, 2, 3], [2, 3, 4]), ([2, 3, 4], [3, 4, 1])])
+        self.assertEqual(tokenizer.vocabulary, tuple("abcd"))
+
+    def test_empty_training_split_reports_required_and_actual_length(self):
+        for text in ("", "abcd"):
+            with self.subTest(text=text), self.assertRaisesRegex(
+                ValueError, "训练集.*至少需要 3.*实际 0"
+            ):
+                prepare_data(text, 2, 0.1)
+
     def test_invalid_parameters(self):
         for size in (0, -1, True, 1.5):
             with self.subTest(size=size), self.assertRaisesRegex(ValueError, "正整数"):
